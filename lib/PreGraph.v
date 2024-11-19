@@ -2,14 +2,13 @@ Require Import CertiGraph.lib.Ensembles_ext.
 Require Import CertiGraph.lib.List_ext.
 Require Import CertiGraph.lib.relation_list.
 Require Import Coq.ZArith.ZArith.
-Require Import Coq.Strings.Ascii.
 From StateMonad.monaderror Require Import monadEbasic.
 
 Import MonadwitherrDeno.
 Import MonadNotation.
 Local Open Scope Z_scope.
 
-Definition epsilon : option ascii := None.
+Definition epsilon {T: Type} : option T := None.
 
 Section GRAPH_DEF.
 
@@ -22,18 +21,18 @@ Record PreGraph {Vertex Edge: Type} := {
 
 (* We use Z as unique label for each vertex and edge. *)
 (* And use `symbol` to record character on each edge based on label. *)
-Record pg_nfa := {
+Record pg_nfa {T: Type} := {
   pg : @PreGraph Z Z;
-  symbol : Z -> option ascii
+  symbol : Z -> option T
 }.
 
-Record elem := {
+Record elem {T: Type} := {
   startVertex : Z;
   endVertex : Z;
-  graph : pg_nfa;
+  graph : @pg_nfa T;
 }.
 
-Definition empty_nfa : pg_nfa := {|
+Definition empty_nfa {T: Type} : @pg_nfa T := {|
   (* ? Pose src/dst as `fun n => -1` to indicate emptyness *)
   pg := @Build_PreGraph Z Z (fun v => False) (fun e => False) (fun n => (-1)%Z) (fun n => (-1)%Z);
   symbol := fun n => None
@@ -54,17 +53,17 @@ Inductive step (pg: @PreGraph Z Z): Z -> Z -> Prop :=
 Definition edge (pg : @PreGraph Z Z) (n n' : Z) : Prop :=
   vvalid pg n /\ vvalid pg n' /\ step pg n n'.
 
-Definition vertex_overlap : pg_nfa -> pg_nfa -> Prop :=
+Definition vertex_overlap {T: Type} : @pg_nfa T -> @pg_nfa T -> Prop :=
   fun g1 g2 =>
     exists v, vvalid g1.(pg) v /\ vvalid g2.(pg) v.
 
-Definition edge_overlap : pg_nfa -> pg_nfa -> Prop :=
+Definition edge_overlap {T} : @pg_nfa T -> @pg_nfa T -> Prop :=
   fun g1 g2 => exists v v', edge g1.(pg) v v' /\ edge g2.(pg) v v'.
 
-Definition symbol_overlap : pg_nfa -> pg_nfa -> Prop :=
+Definition symbol_overlap {T} : @pg_nfa T -> @pg_nfa T -> Prop :=
   fun g1 g2 => exists e c1 c2, g1.(symbol) e = Some c1 /\ g2.(symbol) e = Some c2.
 
-Definition G_add_vertex : pg_nfa -> Z -> pg_nfa -> Prop :=
+Definition G_add_vertex {T} : @pg_nfa T -> Z -> @pg_nfa T -> Prop :=
   fun G1 n G2 =>
     let g1 := G1.(pg) in
     let g2 := G2.(pg) in
@@ -75,7 +74,7 @@ Definition G_add_vertex : pg_nfa -> Z -> pg_nfa -> Prop :=
     (forall e, g2.(dst) e = g1.(dst) e) /\
     (forall e, G2.(symbol) e = G1.(symbol) e).
 
-Definition G_add_edge : pg_nfa -> Z -> Z -> Z -> option ascii -> pg_nfa -> Prop :=
+Definition G_add_edge {T} : pg_nfa -> Z -> Z -> Z -> option T -> pg_nfa -> Prop :=
   fun G1 n s t c G2 =>
     let g1 := G1.(pg) in
     let g2 := G2.(pg) in
@@ -88,7 +87,7 @@ Definition G_add_edge : pg_nfa -> Z -> Z -> Z -> option ascii -> pg_nfa -> Prop 
     (forall e, G2.(symbol) e = if Z.eqb e n then c else G1.(symbol) e).
 
 (* disjoint *)
-Definition G_union : pg_nfa -> pg_nfa -> pg_nfa -> Prop :=
+Definition G_union {T} : @pg_nfa T -> @pg_nfa T -> @pg_nfa T -> Prop :=
   fun g1 g2 g =>
     (forall v, vvalid g1.(pg) v \/ vvalid g2.(pg) v <-> vvalid g.(pg) v) /\
     (forall e, evalid g1.(pg) e \/ evalid g2.(pg) e <-> evalid g.(pg) e) /\
@@ -102,5 +101,12 @@ Definition G_union : pg_nfa -> pg_nfa -> pg_nfa -> Prop :=
                             | Some c1 => Some c1
                             | None => symbol g2 e
                             end).
+
+Definition G_disjoint {T} : @pg_nfa T -> @pg_nfa T -> Prop :=
+  fun G1 G2 =>
+    let g1 := G1.(pg) in
+    let g2 := G2.(pg) in
+    (forall v, g1.(vvalid) v /\ g2.(vvalid) v -> False) /\
+    (forall e, g1.(evalid) e /\ g2.(evalid) e -> False).
 
 End GRAPH_DEF.

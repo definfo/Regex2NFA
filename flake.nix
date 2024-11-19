@@ -45,6 +45,8 @@
               [
                 coq
                 CertiGraph
+                sets
+                fixedpoints
                 monadlib
               ];
           };

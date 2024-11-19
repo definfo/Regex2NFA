@@ -11,7 +11,6 @@ Import MonadNotation.
 Import ListNotations.
 Local Open Scope Z_scope.
 Local Open Scope stmonad_scope.
-Local Open Scope char_scope.
 
 Section NoGraph_NFA_DEF.
 
@@ -29,7 +28,7 @@ Definition get_new_vertex : program state Z := {|
   err := fun s1 => False (* no error case *)
 |}.
 
-Definition pregraph_add_vertex (g: pg_nfa) (v: Z) : program state pg_nfa := {|
+Definition pregraph_add_vertex {T} (g: @pg_nfa T) (v: Z) : program state (@pg_nfa T) := {|
   nrm :=
     fun s1 g' s2 =>
     let g1 := g.(pg) in
@@ -43,7 +42,7 @@ Definition pregraph_add_vertex (g: pg_nfa) (v: Z) : program state pg_nfa := {|
   (* error if new vertex label mismatches current state *)
 |}.
 
-Definition pregraph_add_new_vertex (g: pg_nfa) : program state pg_nfa :=
+Definition pregraph_add_new_vertex {T} (g: @pg_nfa T) : program state (@pg_nfa T) :=
   n <- get_new_vertex ;;
   pregraph_add_vertex g n.
 
@@ -58,7 +57,7 @@ Definition get_new_edge : program state Z := {|
 
 (* add_vertex relation (g1 v g2)*)
 
-Definition pregraph_add_edge (g: pg_nfa) (e: Z) (s t: Z) : program state pg_nfa := {|
+Definition pregraph_add_edge {T} (g: @pg_nfa T) (e: Z) (s t: Z) : program state (@pg_nfa T) := {|
   nrm :=
     fun s1 g' s2 =>
     let g1 := g.(pg) in
@@ -79,11 +78,11 @@ Definition pregraph_add_edge (g: pg_nfa) (e: Z) (s t: Z) : program state pg_nfa 
   (* error if edge exists *)
 |}.
 
-Definition pregraph_add_new_edge (g: pg_nfa) (s t: Z) : program state pg_nfa :=
+Definition pregraph_add_new_edge {T} (g: @pg_nfa T) (s t: Z) : program state (@pg_nfa T) :=
   n <- get_new_edge ;;
   pregraph_add_edge g n s t.
 
-Definition updateEdgeSymbol (g: pg_nfa) (e: Z) (c: option ascii) : program state pg_nfa := {|
+Definition updateEdgeSymbol {T} (g: @pg_nfa T) (e: Z) (c: option T) : program state (@pg_nfa T) := {|
   nrm :=
     fun s1 g' s2 =>
     s1 = s2 /\
@@ -92,7 +91,7 @@ Definition updateEdgeSymbol (g: pg_nfa) (e: Z) (c: option ascii) : program state
 |}.
 (* Relation *)
 
-Definition graph_union (A B: pg_nfa) : program state pg_nfa := {|
+Definition graph_union {T} (A B: @pg_nfa T) : program state pg_nfa := {|
   nrm :=
     fun s1 G s2 =>
     s1 = s2 /\
@@ -101,7 +100,7 @@ Definition graph_union (A B: pg_nfa) : program state pg_nfa := {|
     fun s1 => vertex_overlap A B \/ edge_overlap A B \/ symbol_overlap A B
 |}.
 
-Definition nfa_to_elem (sv ev: Z) (g: pg_nfa) : program state elem := {|
+Definition nfa_to_elem {T} (sv ev: Z) (g: @pg_nfa T) : program state elem := {|
   nrm :=
     fun s1 E s2 =>
     s1 = s2 /\
@@ -117,17 +116,19 @@ Definition nfa_to_elem (sv ev: Z) (g: pg_nfa) : program state elem := {|
 
 (** *)
 
-Definition pregraph_add_whole_edge (g: pg_nfa) (s t: Z) (c: option ascii) : program state pg_nfa :=
+Definition pregraph_add_whole_edge {T} (g: @pg_nfa T) (s t: Z)
+  (c: option T) : program state pg_nfa :=
   e <- get_new_edge ;;
   g1 <- pregraph_add_edge g e s t ;;
   updateEdgeSymbol g1 e c.
 
-Inductive graph_construction_component :=
-  | G (g: pg_nfa)
+Inductive graph_construction_component {T} :=
+  | G (g: @pg_nfa T)
   | V (v: Z)
-  | E (v1 v2: Z) (sbl: option ascii).
+  | E (v1 v2: Z) (sbl: option T).
 
-Definition pregraph_add_component (g: pg_nfa) (comp: graph_construction_component)
+Definition pregraph_add_component {T} (g: @pg_nfa T)
+  (comp: graph_construction_component)
   : program state pg_nfa :=
   match comp with
   | G g' => graph_union g g'
@@ -136,7 +137,8 @@ Definition pregraph_add_component (g: pg_nfa) (comp: graph_construction_componen
   end
 .
 
-Fixpoint pregraph_merge_comp_list (g: pg_nfa) (l_comp: list graph_construction_component)
+Fixpoint pregraph_merge_comp_list {T} (g: @pg_nfa T)
+  (l_comp: list graph_construction_component)
   : program state pg_nfa :=
   match l_comp with
   | nil => return g
@@ -148,28 +150,23 @@ Fixpoint pregraph_merge_comp_list (g: pg_nfa) (l_comp: list graph_construction_c
 
 (** Regex operator definition (concat/union/star/...) *)
 
-(* match single char c *)
-Definition act_singleton (c: option ascii) : program state elem :=
+Definition act_empty {T} : program state (@elem T) :=
   v1 <- get_new_vertex ;;
   v2 <- get_new_vertex ;;
-  (* g1 <- pregraph_add_vertex empty_nfa v1 ;;
-  g2 <- pregraph_add_vertex g1 v2 ;;
-  g3 <- pregraph_add_whole_edge g2 v1 v2 c ;;
-  nfa_to_elem v1 v2 g3. *)
+  g1 <- pregraph_merge_comp_list empty_nfa [V v1; V v2] ;;
+  nfa_to_elem v1 v2 g1.
+
+(* match single char c *)
+Definition act_singleton {T} (c: option T) : program state elem :=
+  v1 <- get_new_vertex ;;
+  v2 <- get_new_vertex ;;
   g1 <- pregraph_merge_comp_list empty_nfa [V v1; V v2; E v1 v2 c] ;;
   nfa_to_elem v1 v2 g1.
 
 (* match A|B *)
-Definition act_union (A B: elem) : program state elem :=
+Definition act_union {T} (A B: @elem T) : program state elem :=
   v1 <- get_new_vertex ;;
   v2 <- get_new_vertex ;;
-  (* g1 <- pregraph_add_vertex g v1 ;;
-  g2 <- pregraph_add_vertex g1 v2 ;;
-  g3 <- pregraph_add_whole_edge g2 v1 A.(startVertex) epsilon ;;
-  g4 <- pregraph_add_whole_edge g3 v1 B.(startVertex) epsilon ;;
-  g5 <- pregraph_add_whole_edge g4 A.(endVertex) v2 epsilon ;;
-  g6 <- pregraph_add_whole_edge g5 B.(endVertex) v2 epsilon ;;
-  nfa_to_elem v1 v2 g6. *)
   g <- pregraph_merge_comp_list A.(graph) [G B.(graph);
                                             V v1;
                                             V v2;
@@ -185,27 +182,18 @@ Definition act_union (A B: elem) : program state elem :=
                                               | V (v: Z)
                                               | E (v1 v2: Z) (label: option ascii). *)
   (* list gr_constr_comp -> Monad *)
-  (* ? list Monad *)
 
 (* match AB *)
-Definition act_concat (A B: elem) : program state elem :=
-  (* g <- graph_union A.(graph) B.(graph) ;;
-  g1 <- pregraph_add_whole_edge g A.(endVertex) B.(startVertex) epsilon ;;
-  nfa_to_elem A.(startVertex) B.(endVertex) g1. *)
+Definition act_concat {T} (A B: @elem T) : program state elem :=
   g <- pregraph_merge_comp_list A.(graph) [G B.(graph);
                                            E A.(endVertex) B.(startVertex) epsilon] ;;
   nfa_to_elem A.(startVertex) B.(endVertex) g.
   
 (* match A* *)
-Definition act_star (A: elem) : program state elem :=
+Definition act_star {T} (A: @elem T) : program state elem :=
   let g := A.(graph) in
   v1 <- get_new_vertex ;;
   v2 <- get_new_vertex ;;
-  (* g1 <- pregraph_add_vertex g v1 ;;
-  g2 <- pregraph_add_vertex g1 v2 ;;
-  g3 <- pregraph_add_whole_edge g2 v1 A.(endVertex) epsilon ;;
-  g4 <- pregraph_add_whole_edge g3 A.(endVertex) v2 epsilon ;;
-  g5 <- pregraph_add_whole_edge g4 A.(endVertex) A.(startVertex) epsilon ;; *)
   g1 <- pregraph_merge_comp_list g [V v1;
                                     V v2;
                                     E v1 A.(endVertex) epsilon;
@@ -214,7 +202,7 @@ Definition act_star (A: elem) : program state elem :=
   nfa_to_elem v1 v2 g1.
 
 (* match A+ *)
-Definition act_plus (A: elem) : program state elem :=
+Definition act_plus {T} (A: @elem T) : program state elem :=
   let g := A.(graph) in
   v1 <- get_new_vertex ;;
   v2 <- get_new_vertex ;;
@@ -226,40 +214,41 @@ Definition act_plus (A: elem) : program state elem :=
   nfa_to_elem v1 v2 g5.
 
 (* match A? *)
-Definition act_question (A: elem) : program state elem :=
+Definition act_question {T} (A: @elem T) : program state elem :=
   let g := A.(graph) in
   g1 <- pregraph_add_whole_edge g A.(startVertex) A.(endVertex) epsilon ;;
   nfa_to_elem A.(startVertex) A.(endVertex) g1.
 
 (* Regex AST <-> NFA Monad *)
 
-Fixpoint regexToNFA (r : reg_exp (option ascii) ) : program state elem :=
+Fixpoint regexToNFA {T} (r : reg_exp T) : program state elem :=
   match r with
-  | EmptySet | EmptyStr =>
-    return {|
-      startVertex := 0;
-      endVertex := 0;
-      graph := empty_nfa
-    |}
-  | Char t =>
-    act_singleton t
-  | Concat r1 r2 =>
+  (** 2 vertices *)
+  | EmptySet_r => act_empty
+
+  | EmptyStr_r => act_singleton None
+
+  | Char_r t =>
+    act_singleton (Some t)
+
+  | Concat_r r1 r2 =>
     E1 <- regexToNFA r1 ;;
     E2 <- regexToNFA r2 ;;
     act_concat E1 E2
-  | Union r1 r2 =>
+
+  | Union_r r1 r2 =>
     E1 <- regexToNFA r1 ;;
     E2 <- regexToNFA r2 ;;
     act_union E1 E2
-  | Star r =>
+
+  | Star_r r =>
     E <- regexToNFA r ;;
     act_star E
-  | Plus r =>
-    E <- regexToNFA r ;;
-    act_plus E
-  | Question r =>
-    E <- regexToNFA r ;;
-    act_question E
   end.
 
 End NoGraph_NFA_DEF.
+
+
+(** 1. st_nograph <-> regex *)
+
+(** NFA accepts a string ? *)

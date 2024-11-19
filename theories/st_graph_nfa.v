@@ -2,24 +2,20 @@ Require Import Regex2NFA.lib.PreGraph.
 Require Import Regex2NFA.theories.regex.
 Require Import Coq.Init.Datatypes.
 Require Import Coq.ZArith.ZArith.
-Require Import Coq.Strings.Ascii.
-Require Import List.
 From StateMonad.monaderror Require Import monadEbasic.
 
 Import MonadwitherrDeno.
 Import MonadNotation.
-Import ListNotations.
 Local Open Scope Z_scope.
 Local Open Scope stmonad_scope.
-Local Open Scope char_scope.
 
 Section Graph_NFA_DEF.
 
 (* state with graph *)
-Record state' := {
+Record state' {T} := {
   max_v' : Z;
   max_e' : Z;
-  st_graph : pg_nfa
+  st_graph : @pg_nfa T
 }.
 
 Record elem' := {
@@ -29,7 +25,7 @@ Record elem' := {
 
 (** program state' (sv, ev) *)
 
-Definition get_new_vertex' : program state' Z := {|
+Definition get_new_vertex' {T} : program (@state' T) Z := {|
   nrm :=
     fun s1 n s2 =>
     s2.(max_v') = s1.(max_v') + 1 /\
@@ -38,7 +34,7 @@ Definition get_new_vertex' : program state' Z := {|
   err := fun s1 => False (* no error case *)
 |}.
 
-Definition get_new_edge' : program state' Z := {|
+Definition get_new_edge' {T} : program (@state' T) Z := {|
   nrm :=
     fun s1 n s2 =>
     s2.(max_v') = s1.(max_v') /\
@@ -47,7 +43,7 @@ Definition get_new_edge' : program state' Z := {|
   err := fun s1 => False (* no error case *)
 |}.
 
-Definition pregraph_add_vertex' (v: Z) : program state' pg_nfa := {|
+Definition pregraph_add_vertex' {T} (v: Z) : program (@state' T) pg_nfa := {|
   nrm :=
     fun s1 G s2 =>
     let G1 := s1.(st_graph) in
@@ -60,7 +56,8 @@ Definition pregraph_add_vertex' (v: Z) : program state' pg_nfa := {|
   (* error if new vertex label mismatches current state *)
 |}.
 
-Definition pregraph_add_edge' (e: Z) (s t: Z) (c : option ascii) : program state' pg_nfa := {|
+Definition pregraph_add_edge' {T} (e: Z) (s t: Z) (c : option T)
+: program (@state' T) pg_nfa := {|
   nrm :=
     fun s1 G s2 =>
     let G1 := s1.(st_graph) in
@@ -80,11 +77,12 @@ Definition pregraph_add_edge' (e: Z) (s t: Z) (c : option ascii) : program state
   (* error if edge exists *)
 |}.
 
-Definition pregraph_add_whole_edge' (s t: Z) (c: option ascii) : program state' pg_nfa :=
+Definition pregraph_add_whole_edge' {T} (s t: Z) (c: option T)
+: program state' pg_nfa :=
   e <- get_new_edge' ;;
   pregraph_add_edge' e s t c.
 
-Definition nfa_to_elem' (sv ev: Z) : program state' elem' := {|
+Definition nfa_to_elem' {T} (sv ev: Z) : program (@state' T) elem' := {|
   nrm :=
     fun s1 E s2 =>
     s1 = s2 /\
@@ -98,39 +96,39 @@ Definition nfa_to_elem' (sv ev: Z) : program state' elem' := {|
     ~ vvalid g.(pg) sv \/ ~ vvalid g.(pg) ev
 |}.
 
-Definition init_singleton (c: option ascii) : program state' elem' := {|
-  nrm :=
-    fun s1 el s2 =>
-    s2.(max_v') = s1.(max_v') + 2 /\
-    s2.(max_e') = s1.(max_e') + 1 /\
-    el = {|
-      startVertex' := s1.(max_v') + 1;
-      endVertex' := s1.(max_v') + 2;
-    |};
-  err :=
-    fun s1 => False
-|}.
-
-Fixpoint regexToNFA' (r : reg_exp (option ascii) ) : program state' elem' :=
+Fixpoint regexToNFA' {T} (r : reg_exp T)
+: program state' elem' :=
   match r with
-  | EmptySet | EmptyStr =>
-    return {|
-      startVertex' :=0;
-      endVertex' := 0
-    |}
-  | Char t =>
+  | EmptySet_r =>
     v1 <- get_new_vertex' ;;
     v2 <- get_new_vertex' ;;
     pregraph_add_vertex' v1 ;;
     pregraph_add_vertex' v2 ;;
-    pregraph_add_whole_edge' v1 v2 t ;;
     nfa_to_elem' v1 v2
-  | Concat r1 r2 =>
+
+  | EmptyStr_r =>
+    v1 <- get_new_vertex' ;;
+    v2 <- get_new_vertex' ;;
+    pregraph_add_vertex' v1 ;;
+    pregraph_add_vertex' v2 ;;
+    pregraph_add_whole_edge' v1 v2 None ;;
+    nfa_to_elem' v1 v2
+
+  | Char_r t =>
+    v1 <- get_new_vertex' ;;
+    v2 <- get_new_vertex' ;;
+    pregraph_add_vertex' v1 ;;
+    pregraph_add_vertex' v2 ;;
+    pregraph_add_whole_edge' v1 v2 (Some t) ;;
+    nfa_to_elem' v1 v2
+
+  | Concat_r r1 r2 =>
     E1 <- regexToNFA' r1 ;;
     E2 <- regexToNFA' r2 ;;
     pregraph_add_whole_edge' E1.(endVertex') E2.(startVertex') epsilon ;;
     nfa_to_elem' E1.(startVertex') E2.(endVertex')
-  | Union r1 r2 =>
+
+  | Union_r r1 r2 =>
     E1 <- regexToNFA' r1 ;;
     E2 <- regexToNFA' r2 ;;
     v1 <- get_new_vertex' ;;
@@ -142,7 +140,8 @@ Fixpoint regexToNFA' (r : reg_exp (option ascii) ) : program state' elem' :=
     pregraph_add_whole_edge' E1.(endVertex') v2 epsilon ;;
     pregraph_add_whole_edge' E2.(endVertex') v2 epsilon ;;
     nfa_to_elem' E1.(startVertex') E2.(startVertex')
-  | Star r =>
+
+  | Star_r r =>
     E <- regexToNFA' r ;;
     v1 <- get_new_vertex' ;;
     v2 <- get_new_vertex' ;;
@@ -152,20 +151,6 @@ Fixpoint regexToNFA' (r : reg_exp (option ascii) ) : program state' elem' :=
     pregraph_add_whole_edge' E.(endVertex') v2 epsilon ;;
     pregraph_add_whole_edge' E.(endVertex') E.(startVertex') epsilon ;;
     nfa_to_elem' v1 v2
-  | Plus r =>
-    E <- regexToNFA' r ;;
-    v1 <- get_new_vertex' ;;
-    v2 <- get_new_vertex' ;;
-    pregraph_add_vertex' v1 ;;
-    pregraph_add_vertex' v2 ;;
-    pregraph_add_whole_edge' v1 E.(startVertex') epsilon ;;
-    pregraph_add_whole_edge' E.(endVertex') v2 epsilon ;;
-    pregraph_add_whole_edge' E.(endVertex') E.(startVertex') epsilon ;;
-    nfa_to_elem' v1 v2
-  | Question r =>
-    E <- regexToNFA' r ;;
-    pregraph_add_whole_edge' E.(startVertex') E.(endVertex') epsilon ;;
-    nfa_to_elem' E.(startVertex') E.(endVertex')
   end.
 
 (** recursion *)
