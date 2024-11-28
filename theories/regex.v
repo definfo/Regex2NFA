@@ -1,6 +1,4 @@
-Require Import Coq.Strings.Ascii.
-Require Import Coq.Strings.String.
-(* Require Import Coq.Sets.Ensembles. *)
+Require Import Coq.ZArith.ZArith.
 From SetsClass Require Import SetsClass.
 Local Open Scope sets_scope.
 Local Open Scope list_scope.
@@ -33,12 +31,6 @@ Arguments Char_r {T} _.
 Arguments Concat_r {T} _ _.
 Arguments Union_r {T} _ _.
 Arguments Star_r {T} _.
-
-(* Inductive Concat_Ensemble (B C : Ensemble string) : Ensemble string :=
-  Concat_intro : forall (x y : string), In string B x -> In string C y -> In string (Concat_Ensemble B C) (x ++ y). *)
-
-(* If the string can be matched by the reg_exp *)
-  (* set string *)
 
 Check Sets.full .
 Check Sets.equiv .

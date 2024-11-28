@@ -2,11 +2,13 @@ Require Import CertiGraph.lib.Ensembles_ext.
 Require Import CertiGraph.lib.List_ext.
 Require Import CertiGraph.lib.relation_list.
 Require Import Coq.ZArith.ZArith.
+From SetsClass Require Import SetsClass.
 From StateMonad.monaderror Require Import monadEbasic.
 
 Import MonadwitherrDeno.
 Import MonadNotation.
 Local Open Scope Z_scope.
+Local Open Scope sets_scope.
 
 Definition epsilon {T: Type} : option T := None.
 
@@ -26,10 +28,28 @@ Record pg_nfa {T: Type} := {
   symbol : Z -> option T
 }.
 
+(* state without graph *)
+Record state := {
+  max_v : Z;
+  max_e : Z
+}.
+
 Record elem {T: Type} := {
   startVertex : Z;
   endVertex : Z;
   graph : @pg_nfa T;
+}.
+
+(* state with graph *)
+Record state' {T} := {
+  max_v' : Z;
+  max_e' : Z;
+  st_graph : @pg_nfa T
+}.
+
+Record elem' := {
+  startVertex' : Z;
+  endVertex' : Z
 }.
 
 Definition empty_nfa {T: Type} : @pg_nfa T := {|
@@ -87,7 +107,7 @@ Definition G_add_edge {T} : pg_nfa -> Z -> Z -> Z -> option T -> pg_nfa -> Prop 
     (forall e, G2.(symbol) e = if Z.eqb e n then c else G1.(symbol) e).
 
 (* disjoint *)
-Definition G_union {T} : @pg_nfa T -> @pg_nfa T -> @pg_nfa T -> Prop :=
+Definition G_union_rel {T} : @pg_nfa T -> @pg_nfa T -> @pg_nfa T -> Prop :=
   fun g1 g2 g =>
     (forall v, vvalid g1.(pg) v \/ vvalid g2.(pg) v <-> vvalid g.(pg) v) /\
     (forall e, evalid g1.(pg) e \/ evalid g2.(pg) e <-> evalid g.(pg) e) /\
@@ -110,3 +130,42 @@ Definition G_disjoint {T} : @pg_nfa T -> @pg_nfa T -> Prop :=
     (forall e, g1.(evalid) e /\ g2.(evalid) e -> False).
 
 End GRAPH_DEF.
+
+Section NFA_REL.
+
+Definition e_step {T} (G: @pg_nfa T) : Z -> Z -> Prop :=
+  fun x y => exists e, step G.(pg) x y /\ G.(symbol) e = None.
+
+Definition c_step {T} (G: @pg_nfa T) (c: T) : Z -> Z -> Prop :=
+  fun x y => exists e, step G.(pg) x y /\ G.(symbol) e = Some c.
+
+(** TODO: SetsClass induction_1n transitivity_1n one_step vs n_step *)
+(** rel *)
+
+Inductive e_closure {T} (G: @pg_nfa T) (v: Z) : Z -> Prop :=
+  | e_intro : forall v', e_step G v v' -> e_closure G v v'
+  | e_refl  : e_closure G v v
+  | e_trans : forall v' v'', e_closure G v v' -> e_closure G v' v'' -> e_closure G v v''
+.
+
+(** T -> rel *)
+(** string_step : rel concat  *)
+(** G_match_str := string_step + e_closure *)
+
+(** Calculate the new e_closure when consuming a char *)
+Definition closure_step {T} (G: @pg_nfa T) (ec: Z -> Prop) (c: T) : Z -> Prop :=
+  fun y => exists x, ec x /\ c_step G c x y.
+
+Fixpoint nfa_closure {T} (G: @pg_nfa T) (ec: Z -> Prop) (l: list T) : Z -> Prop :=
+  match l with
+  | nil => ec
+  | cons s l' => nfa_closure G (closure_step G ec s) l'
+  end.
+
+Definition G_match_string {T} (G: @pg_nfa T) (sv ev: Z) (l: list T) : Prop :=
+  (nfa_closure G (e_closure G sv) l) ev.
+
+End NFA_REL.
+
+(* step (epsilon / char) ; reflexive transitive closure *)
+(* monad repeatBreak whileBreak *)

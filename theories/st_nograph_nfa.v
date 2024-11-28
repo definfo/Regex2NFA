@@ -14,12 +14,6 @@ Local Open Scope stmonad_scope.
 
 Section NoGraph_NFA_DEF.
 
-(* state without graph *)
-Record state := {
-  max_v : Z;
-  max_e : Z
-}.
-
 Definition get_new_vertex : program state Z := {|
   nrm := fun s1 n s2 =>
     s2.(max_v) = s1.(max_v) + 1 /\
@@ -95,7 +89,7 @@ Definition graph_union {T} (A B: @pg_nfa T) : program state pg_nfa := {|
   nrm :=
     fun s1 G s2 =>
     s1 = s2 /\
-    G_union A B G;
+    G_union_rel A B G;
   err :=
     fun s1 => vertex_overlap A B \/ edge_overlap A B \/ symbol_overlap A B
 |}.
@@ -228,8 +222,7 @@ Fixpoint regexToNFA {T} (r : reg_exp T) : program state elem :=
 
   | EmptyStr_r => act_singleton None
 
-  | Char_r t =>
-    act_singleton (Some t)
+  | Char_r t => act_singleton (Some t)
 
   | Concat_r r1 r2 =>
     E1 <- regexToNFA r1 ;;

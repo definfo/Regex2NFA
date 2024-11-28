@@ -11,18 +11,6 @@ Local Open Scope stmonad_scope.
 
 Section Graph_NFA_DEF.
 
-(* state with graph *)
-Record state' {T} := {
-  max_v' : Z;
-  max_e' : Z;
-  st_graph : @pg_nfa T
-}.
-
-Record elem' := {
-  startVertex' : Z;
-  endVertex' : Z
-}.
-
 (** program state' (sv, ev) *)
 
 Definition get_new_vertex' {T} : program (@state' T) Z := {|
