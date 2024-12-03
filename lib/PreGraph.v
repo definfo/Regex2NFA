@@ -2,11 +2,13 @@ Require Import CertiGraph.lib.Ensembles_ext.
 Require Import CertiGraph.lib.List_ext.
 Require Import CertiGraph.lib.relation_list.
 Require Import Coq.ZArith.ZArith.
+Require Import Coq.Classes.RelationClasses.
 From SetsClass Require Import SetsClass.
 From StateMonad.monaderror Require Import monadEbasic.
 
 Import MonadwitherrDeno.
 Import MonadNotation.
+Import SetsNotation.
 Local Open Scope Z_scope.
 Local Open Scope sets_scope.
 
@@ -136,21 +138,33 @@ Section NFA_REL.
 Definition e_step {T} (G: @pg_nfa T) : Z -> Z -> Prop :=
   fun x y => exists e, step G.(pg) x y /\ G.(symbol) e = None.
 
-Definition c_step {T} (G: @pg_nfa T) (c: T) : Z -> Z -> Prop :=
-  fun x y => exists e, step G.(pg) x y /\ G.(symbol) e = Some c.
-
+Definition e_steps {T} (G: @pg_nfa T) : Z -> Z -> Prop :=
+  (** See SetsClass *)
+  clos_refl_trans (e_step G).
 (** TODO: SetsClass induction_1n transitivity_1n one_step vs n_step *)
 (** rel *)
-
-Inductive e_closure {T} (G: @pg_nfa T) (v: Z) : Z -> Prop :=
-  | e_intro : forall v', e_step G v v' -> e_closure G v v'
-  | e_refl  : e_closure G v v
-  | e_trans : forall v' v'', e_closure G v v' -> e_closure G v' v'' -> e_closure G v v''
-.
 
 (** T -> rel *)
 (** string_step : rel concat  *)
 (** G_match_str := string_step + e_closure *)
+
+(* ? *)
+Definition c_step {T} (G: @pg_nfa T) (c: T) : Z -> Z -> Prop :=
+  fun x y => exists e, step G.(pg) x y /\ G.(symbol) e = Some c.
+
+Definition char_step {T} (G: @pg_nfa T) (c: T) : Z -> Z -> Prop :=
+  (e_steps G) ∘ (c_step G c) ∘ (e_steps G).
+
+Fixpoint string_step {T} (G: @pg_nfa T) (l: list T) : Z -> Z -> Prop :=
+  match l with
+  | nil => Rels.id
+  | cons s l' => (char_step G s) ∘ (string_step G l')
+  end.
+
+Definition G_match_str {T} (G: @pg_nfa T) (sv ev: Z) (l: list T)
+  : Prop := string_step G l sv ev.
+
+
 
 (** Calculate the new e_closure when consuming a char *)
 Definition closure_step {T} (G: @pg_nfa T) (ec: Z -> Prop) (c: T) : Z -> Prop :=
@@ -163,7 +177,7 @@ Fixpoint nfa_closure {T} (G: @pg_nfa T) (ec: Z -> Prop) (l: list T) : Z -> Prop 
   end.
 
 Definition G_match_string {T} (G: @pg_nfa T) (sv ev: Z) (l: list T) : Prop :=
-  (nfa_closure G (e_closure G sv) l) ev.
+  (nfa_closure G (e_steps G sv) l) ev.
 
 End NFA_REL.
 
