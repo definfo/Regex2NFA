@@ -1,0 +1,9 @@
+[submodule "monadlib"]
+	path = monadlib
+	url = https://bitbucket.org/Wushushu/monadlib
+[submodule "sets"]
+	path = sets
+	url = https://bitbucket.org/qinxiang-SJTU/sets
+[submodule "fixedpoints"]
+	path = fixedpoints
+	url = https://bitbucket.org/qinxiang-SJTU/fixedpoints

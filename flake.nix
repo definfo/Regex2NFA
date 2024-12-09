@@ -4,7 +4,10 @@
   inputs.nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0.1.*.tar.gz";
 
   outputs =
-    { self, nixpkgs }:
+    {
+      self,
+      nixpkgs,
+    }:
     let
       supportedSystems = [
         "x86_64-linux"
@@ -29,26 +32,7 @@
         { pkgs }:
         {
           default = pkgs.mkShell {
-            packages =
-              let
-                coq = pkgs.coq_8_19;
-                callCoqPackage = pkgs.coqPackages_8_19.callPackage;
-                sets = callCoqPackage ./sets.nix { };
-                fixedpoints = callCoqPackage ./fixedpoints.nix {
-                  inherit sets;
-                };
-                monadlib = callCoqPackage ./monadlib.nix {
-                  inherit sets fixedpoints;
-                };
-                CertiGraph = callCoqPackage ./CertiGraph.nix { };
-              in
-              [
-                coq
-                CertiGraph
-                sets
-                fixedpoints
-                monadlib
-              ];
+            packages = with pkgs; [ coq_8_18 ];
           };
         }
       );

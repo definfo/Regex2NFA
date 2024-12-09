@@ -1,6 +1,4 @@
 Require Import CertiGraph.lib.Ensembles_ext.
-Require Import CertiGraph.lib.List_ext.
-Require Import CertiGraph.lib.relation_list.
 Require Import Coq.ZArith.ZArith.
 Require Import Coq.Classes.RelationClasses.
 From SetsClass Require Import SetsClass.

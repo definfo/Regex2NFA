@@ -1,7 +1,0 @@
--R . Regex2NFA
-
-lib/PreGraph.v
-
-theories/st_nograph_nfa.v
-theories/st_graph_nfa.v
-theories/regex.v
