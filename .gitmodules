@@ -4,6 +4,7 @@
 [submodule "sets"]
 	path = sets
 	url = https://bitbucket.org/qinxiang-SJTU/sets
+	branch = sets-8.15
 [submodule "fixedpoints"]
 	path = fixedpoints
 	url = https://bitbucket.org/qinxiang-SJTU/fixedpoints
