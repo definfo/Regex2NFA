@@ -1,19 +1,17 @@
-# Dependencies
+# Regex2NFA
 
-GNU Make
+(WIP)
 
-Compatible with Coq 8.18-8.19
+## Requirements
 
-# Build Command
+GNU Make; Coq 8.15.2
+
+## Build Command
 
 ```sh
 git submodule update --init
 
-# apply patch if compilation failed
-cd <subdir>
-git apply ../xx-<subdir>.patch
-cd ..
-
-make world
+make _CoqProject # (optional) used for VsCoq to locate libraries
+make depend
 make
 ```

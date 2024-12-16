@@ -32,7 +32,7 @@
         { pkgs }:
         {
           default = pkgs.mkShell {
-            packages = with pkgs; [ coq_8_18 ];
+            packages = with pkgs; [ coq_8_15 ];
           };
         }
       );

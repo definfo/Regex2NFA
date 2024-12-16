@@ -47,10 +47,12 @@ Record state' {T} := {
   st_graph : @pg_nfa T
 }.
 
-Record elem' := {
+(* Record elem' := {
   startVertex' : Z;
   endVertex' : Z
-}.
+}. *)
+
+Definition elem' : Type := (Z * Z)%type.
 
 Definition empty_nfa {T: Type} : @pg_nfa T := {|
   (* ? Pose src/dst as `fun n => -1` to indicate emptyness *)
