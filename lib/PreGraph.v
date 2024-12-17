@@ -54,12 +54,6 @@ Record state' {T} := {
 
 Definition elem' : Type := (Z * Z)%type.
 
-Definition empty_nfa {T: Type} : @pg_nfa T := {|
-  (* ? Pose src/dst as `fun n => -1` to indicate emptyness *)
-  pg := @Build_PreGraph Z Z (fun v => False) (fun e => False) (fun n => (-1)%Z) (fun n => (-1)%Z);
-  symbol := fun n => None
-|}.
-
 Definition addValidFunc {T: Type} (v: T) (validFunc: Ensemble T) : Ensemble T :=
   fun n => validFunc n \/ n = v.
 
@@ -90,8 +84,8 @@ Definition G_add_vertex {T} : @pg_nfa T -> Z -> @pg_nfa T -> Prop :=
     let g1 := G1.(pg) in
     let g2 := G2.(pg) in
     (~ vvalid g1 n) /\
-    (forall e, g2.(vvalid) e <-> g1.(vvalid) e \/ e = n) /\
-    (forall v, evalid g2 v <-> evalid g1 v) /\
+    (forall v, g2.(vvalid) v <-> g1.(vvalid) v \/ v = n) /\
+    (forall e, evalid g2 e <-> evalid g1 e) /\
     (forall e, g2.(src) e = g1.(src) e) /\
     (forall e, g2.(dst) e = g1.(dst) e) /\
     (forall e, G2.(symbol) e = G1.(symbol) e).
@@ -132,6 +126,22 @@ Definition G_disjoint {T} : @pg_nfa T -> @pg_nfa T -> Prop :=
     (forall e, g1.(evalid) e /\ g2.(evalid) e -> False).
 
 End GRAPH_DEF.
+
+Section GRAPH_EXAMPLE.
+
+Definition empty_nfa {T: Type} : @pg_nfa T := {|
+  (* ? Pose src/dst as `fun n => -1` to indicate emptyness *)
+  pg := @Build_PreGraph Z Z (fun v => False) (fun e => False) (fun n => (-1)%Z) (fun n => (-1)%Z);
+  symbol := fun _ => None
+|}.
+
+Definition emptyset_nfa {T: Type} (v1 v2 : Z) : @pg_nfa T := {|
+  (* ? Pose src/dst as `fun n => -1` to indicate emptyness *)
+  pg := @Build_PreGraph Z Z (fun v => v = v1 \/ v = v2) (fun e => False) (fun n => (-1)%Z) (fun n => (-1)%Z);
+  symbol := fun _ => None
+|}.
+
+End GRAPH_EXAMPLE.
 
 Section NFA_REL.
 
