@@ -8,8 +8,11 @@ From StateMonad.monaderror Require Import monadEbasic monadEwhile monadesafe_lib
 
 Import MonadwitherrDeno.
 Import MonadNotation.
+Import PreGraphNotations.
 Local Open Scope stmonad_scope.
 Local Open Scope Z_scope.
+Local Open Scope pg_scope.
+
 
 (** high_level prop *)
 Lemma st_nograph_inc {T: Type} :
@@ -30,7 +33,7 @@ Admitted.
 
 (** low_level prop *)
 Lemma st_graph_inc {T: Type} :
-  forall (r : reg_exp T), exists (v e : Z) (G: @pg_nfa T),
+  forall (r : reg_exp T), exists (v e : Z) (G: pg_nfa T),
   Hoare (fun s1 => s1.(max_v') = v /\
                    s1.(max_e') = e /\
                    s1.(st_graph) = G)
@@ -44,84 +47,68 @@ Lemma st_graph_inc {T: Type} :
 Proof.
 Admitted.
 
-Lemma get_new_vertex'_fact {T: Type} :
-  forall P,
+(*********************************************************)
+(**                                                      *)
+(** Low_level facts                                      *)
+(**                                                      *)
+(*********************************************************)
+
+Lemma G_add_vertex'_fact {T: Type} : forall P,
   Hoare P
-        (@get_new_vertex' T)
+        (@G_add_vertex' T)
         (fun n s =>
           n = s.(max_v') /\
           exists s',
           s.(max_v') = s'.(max_v') + 1 /\
           s.(max_e') = s'.(max_e') /\
-          s.(st_graph) = s'.(st_graph) /\
+          add_vertex s'.(st_graph) s.(max_v') s.(st_graph) /\
           P s'
         ).
 Proof.
-unfold get_new_vertex', Hoare.
-split; intros.
+unfold G_add_vertex', Hoare. split; intros.
 - destruct H0 as [?[?[?]]].
-  split; eauto.
-- eauto.
-Qed.
-
-Lemma pregraph_add_vertex'_fact {T: Type} :
-  forall v P,
-  Hoare (fun s => v = s.(max_v') /\ P s)
-        (@pregraph_add_vertex' T v)
-        (fun G s =>
-          exists s',
-          G = s.(st_graph) /\
-          s.(max_v') = s'.(max_v') /\
-          s.(max_e') = s'.(max_e') /\
-          G_add_vertex s'.(st_graph) v s.(st_graph) /\
-          P s'
-        ).
-Proof.
-unfold pregraph_add_vertex', Hoare.
-split; intros.
-- eexists σ1.
-  destruct H.
-  destruct H0 as [?[?[?]]].
-  destruct H3 as [?[?[?[?[?]]]]].
   repeat split; eauto.
-  apply H5. apply H5.
-  apply H6. apply H6.
-- destruct H.
-  destruct H0. eauto.
+- destruct H0.
 Qed.
 
-Lemma pregraph_add_whole_vertex'_fact {T: Type} :
-  forall P,
-  Hoare P
-        (v <- @get_new_vertex' T ;; pregraph_add_vertex' v)
-        (fun G s =>
-          exists s',
-          G = s.(st_graph) /\
-          s.(max_v') = s'.(max_v') + 1 /\
-          s.(max_e') = s'.(max_e') /\
-          G_add_vertex s'.(st_graph) s.(max_v') s.(st_graph) /\
-          P s'
-        ).
+(*********************************************************)
+(**                                                      *)
+(** High_level facts                                     *)
+(**                                                      *)
+(*********************************************************)
+
+Lemma get_new_vertex_fact {T: Type} : forall v e,
+  (fun s =>
+    s.(max_v) = v /\
+    s.(max_e) = e) -@
+  get_new_vertex -⥅
+  (fun s =>
+    s.(max_v) = v + 1 /\
+    s.(max_e) = e) ♯ (v + 1).
 Proof.
-intros. eapply Hoare_bind. 1 : { apply get_new_vertex'_fact. }
-intros. unfold pregraph_add_vertex', Hoare.
-split; intros.
-- destruct H as [?[?[?[?[?]]]]].
-  destruct H0 as [?[?[?]]].
-  eexists x.
-  split. eauto.
-  split. lia.
-  split. lia.
-  split. rewrite <- H3. rewrite H0. rewrite <- H. eauto.
-  eauto.
-- destruct H as [?[?[?[?[]]]]].
-  destruct H0.
-  eauto.
+unfold hs_eval. intros.
+destruct H.
+eexists {|
+  max_v := v + 1;
+  max_e := e
+|}.
+simpl; repeat split; subst; eauto.
 Qed.
+
+Lemma G_add_vertex_fact {T: Type} : forall (g1 g2: pg_nfa T) v P,
+  add_vertex g1 v g2 ->
+  P -@ (G_add_vertex g1 v) -⥅ P ♯ (g2).
+Proof.
+unfold hs_eval. intros. simpl.
+eexists σₕ.
+split; eauto.
+Qed.
+
+(** Refinement proof between high_level and low_level *)
 
 Lemma st_graph_refine {T: Type} :
   (** ∀ X, *)
-  forall (r : reg_exp T) (G: @pg_nfa T) X,
+  forall (r : reg_exp T) (G: pg_nfa T) X,
   Hoare (
           fun s1 =>
             (** safeExec_X P_abs c_abs X *)
@@ -153,30 +140,41 @@ Lemma st_graph_refine {T: Type} :
             (** Q_con(a) *)
             sv = el.(startVertex) /\
             ev = el.(endVertex) /\
-            G_union_rel G el.(graph) s2.(st_graph) (** refinement *)
+            union_rel G el.(graph) s2.(st_graph) (** refinement *)
         ).
 Proof.
 induction r.
 - simpl regexToNFA'.
-  intros. eapply Hoare_bind. 1 : { eapply get_new_vertex'_fact. }
-  intros. eapply Hoare_bind. 1 : { eapply pregraph_add_vertex'_fact. }
-  intros. eapply Hoare_bind. 1 : { eapply get_new_vertex'_fact. }
-  intros. eapply Hoare_bind. 1 : { eapply pregraph_add_vertex'_fact. }
+  intros. eapply Hoare_bind. 1 : { eapply G_add_vertex'_fact. }
+  intros. eapply Hoare_bind. 1 : { eapply G_add_vertex'_fact. }
   intros. eapply Hoare_return. 1 : {
     intros.
     destruct H as [?[?[?[?]]]].
-    destruct H2 as [?[?[?[?[?]]]]].
+    destruct H2 as [?[?[?[?[?[? [?[?[?] ]]]]]]]].
+    (* TODO *)
     (** eexists (Build_elem a a1 ... ) *)
-    eexists (@Build_elem T a a1 (emptyset_nfa a a1)).
-    simpl. repeat split; eauto.
-    - destruct H6 as [?[?[?[?[?[?[?[?[?[?[? [? ?]]]]]]]]]]]].
-      unfold emptyset_nfa. unfold regexToNFA, act_empty in H13.
-      eapply highstepbind_derive in H13.
-      2 : { instantiate (1 := x1.(max_v')). }
-      (** x2 -<new_v'>- x1 -<+a>- x0 -<new_v'>- x -<+a1>- σ *)
+    eexists (@Build_elem T a a0 (emptyset_nfa a a0)).
+    repeat split; eauto.
+    - unfold emptyset_nfa. unfold regexToNFA, act_empty in H7.
+      eapply highstepbind_derive in H7. 2 : { eapply get_new_vertex_fact. }
+      eapply highstepbind_derive in H7. 2 : { eapply get_new_vertex_fact. }
+      unfold graph_constr, graph_constr_rec in H7.
+      repeat rewrite bind_bind_equiv in H7.
+      eapply highstepbind_derive in H7. 2 : {
+        eapply G_add_vertex_fact.
+        assert (forall v, add_vertex empty_nfa v
+                            (@Build_pg_nfa T
+                              (@Graph.Build_PreGraph Z Z
+                                  (fun n => n = v \/ empty_nfa.(pg T).(vvalid) n)
+                                  (empty_nfa.(pg T).(evalid))
+                                  (empty_nfa.(pg T).(src))
+                                  (empty_nfa.(pg T).(dst))
+                              )
+                              empty_nfa.(symbol)
+                            )
+               ).
+        {
+          intros.
+          simpl; repeat split; eauto.
 
 Admitted.
-
-Check Build_elem.
-
-Check safeExec.

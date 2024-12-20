@@ -2,7 +2,6 @@ CURRENT_DIR = .
 SETS_DIR = sets
 FIXPOINT_DIR = fixedpoints
 MONAD_DIR = monadlib
-CERTIGRAPH_DIR = CertiGraph
 
 COQBIN=
 
@@ -14,9 +13,8 @@ COQDEP=$(COQBIN)coqdep
 SETS_FLAG = -R $(SETS_DIR) SetsClass 
 FIXPOINT_FLAG = $(SETS_FLAG) -R $(FIXPOINT_DIR) FP
 MONAD_FLAG = $(FIXPOINT_FLAG) -R $(MONAD_DIR)/monadnrm StateMonad.monadnrm -R $(MONAD_DIR)/monaderror StateMonad.monaderror
-CERTIGRAPH_FLAG = -R $(CERTIGRAPH_DIR) CertiGraph.lib
 
-DEP_FLAG = $(MONAD_FLAG) $(CERTIGRAPH_FLAG) -R lib Regex2NFA.lib -R theories Regex2NFA.theories
+DEP_FLAG = $(MONAD_FLAG) -R lib Regex2NFA.lib -R theories Regex2NFA.theories
 
 SETS_Files = \
   SetsClass.v \
@@ -53,12 +51,6 @@ MONAD_FILES = \
 	$(MonadNrm_Files:%.v=$(MONAD_DIR)/monadnrm/%.v) \
 	$(MonadError_Files:%.v=$(MONAD_DIR)/monaderror/%.v) \
 
-CertiGraph_Files = \
-	Coqlib.v EquivDec_ext.v Ensembles_ext.v
-
-CERTIGRAPH_FILES = \
-	$(CertiGraph_Files:%.v=$(CERTIGRAPH_DIR)/%.v)
-
 Regex2NFAlib_Files = \
 	PreGraph.v
 
@@ -69,11 +61,13 @@ Regex2NFA_FILES = \
 	$(Regex2NFAlib_Files:%.v=lib/%.v) \
 	$(Regex2NFAtheories_Files:%.v=theories/%.v)
 
-FILES = \
+REQUIREMENT_FILES = \
 	$(SETS_FILES) \
 	$(FIXPOINT_FILES) \
-	$(MONAD_FILES) \
-	$(CERTIGRAPH_FILES) \
+	$(MONAD_FILES)
+
+FILES = \
+	$(REQUIREMENT_FILES) \
 	$(Regex2NFA_FILES)
 
 $(SETS_FILES:%.v=%.vo): %.vo: %.v
@@ -88,13 +82,11 @@ $(MONAD_FILES:%.v=%.vo): %.vo: %.v
 	@echo COQC $(<F)
 	@$(COQC) $(MONAD_FLAG) $<
 
-$(CERTIGRAPH_FILES:%.v=%.vo): %.vo: %.v
-	@echo COQC $(<F)
-	@$(COQC) $(CERTIGRAPH_FLAG) $<
-
 $(Regex2NFA_FILES:%.v=%.vo): %.vo: %.v
 	@echo COQC $(<F)
 	@$(COQC) $(DEP_FLAG) $<
+
+requirements: $(REQUIREMENT_FILES:%.v=%.vo)
 
 world: $(FILES:%.v=%.vo)
 
@@ -115,7 +107,6 @@ clean:
 	@rm -f fixedpoints/*.{vo,vos,vok,glob}
 	@rm -f monadlib/monadnrm/*.{vo,vos,vok,glob}
 	@rm -f monadlib/monaderror/*.{vo,vos,vok,glob}
-	@rm -f CertiGraph/*.{vo,vos,vok,glob}
 	@rm -f lib/*.{vo,vos,vok,glob}
 	@rm -f theories/*.{vo,vos,vok,glob}
 

@@ -9,7 +9,6 @@ Local Open Scope list_scope.
 (* TODO: Denotational defined regex *)
 (* String -> Prop *)
 (* Star r := Union (r^0, r^1, ..., r^n)  *)
-(* CS2612 *)
 
 Inductive reg_exp (T: Type) : Type :=
   (* Ø *)
@@ -17,7 +16,7 @@ Inductive reg_exp (T: Type) : Type :=
   (* '' *)
   | EmptyStr_r
   (* 't' *)
-  | Char_r (t : T)
+  | Char_r (t : T -> Prop)
   (* '<r1><r2>' *)
   | Concat_r (r1 r2 : reg_exp T)
   (* '<r1>|<r2>' *)
@@ -32,16 +31,8 @@ Arguments Concat_r {T} _ _.
 Arguments Union_r {T} _ _.
 Arguments Star_r {T} _.
 
-Check Sets.full .
-Check Sets.equiv .
-
-Check forall A (X: A -> Prop), X ∪ ∅ == X.
-Check forall A B (X Y: A -> B -> Prop), X ∪ Y ⊆ X.
-
 Definition set_prod {T} (A B : list T -> Prop) : list T -> Prop :=
   fun s => exists s1 s2, s1 ∈ A /\ s2 ∈ B /\ s = s1 ++ s2.
-
-Print Sets.indexed_union .
 
 Fixpoint star_r_indexed {T} (n : nat) (s : list T -> Prop) : list T -> Prop :=
   match n with
@@ -53,7 +44,8 @@ Fixpoint exp_match {T} (r : reg_exp T) : list T -> Prop :=
   match r with
   | EmptySet_r => ∅
   | EmptyStr_r => [ nil ]
-  | Char_r t => [ (cons t nil) ]
+(*   | Char_r t => [ (cons t nil) ] *)
+  | Char_r t => fun s => exists c, c ∈ t /\ s = (cons c nil)
   | Concat_r r1 r2 => set_prod (exp_match r1) (exp_match r2)
   | Union_r r1 r2 => (exp_match r1) ∪ (exp_match r2)
   | Star_r r => ⋃ star_r_indexed (exp_match r)
