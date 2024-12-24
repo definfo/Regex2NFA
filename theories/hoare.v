@@ -291,10 +291,30 @@ induction r.
       destruct H2, H6; destruct add_vertex_pg, add_vertex_pg0;
       unfold Sets_disjoint_union in *.
       subst.
-      pose proof (add_vertex_src0 e H11). rewrite <- H.
+      pose proof add_vertex_src0 e H11. rewrite <- H.
       apply add_vertex_src. apply add_vertex_edge0.
       eauto.
-    - simpl.
-
+    - simpl; intros.
+      destruct H11.
+    - simpl; intros.
+      destruct H2, H6; destruct add_vertex_pg, add_vertex_pg0;
+      unfold Sets_disjoint_union in *.
+      subst.
+      pose proof add_vertex_dst0 e H11. rewrite <- H.
+      apply add_vertex_dst. apply add_vertex_edge0.
+      eauto.
+    - simpl; intros.
+      destruct H11.
+    - simpl; intros.
+      destruct H2, H6; destruct add_vertex_pg, add_vertex_pg0;
+      unfold Sets_disjoint_union in *.
+      subst.
+      pose proof add_vertex_symbol0 e H11. rewrite <- H.
+      apply add_vertex_symbol. apply add_vertex_edge0.
+      eauto.
+    - simpl; intros.
+      destruct H11.
+  }
+- (** EmptyStr_r *)
 
 Admitted.
