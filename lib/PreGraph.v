@@ -140,7 +140,7 @@ Definition empty_nfa {T: Type} : pg_nfa T := {|
 
 Definition emptyset_nfa {T: Type} (v1 v2 : Z) : pg_nfa T := {|
   (* ? Pose src/dst as `fun n => -1` to indicate emptyness *)
-  pg := @Graph.Build_PreGraph Z Z (fun v => v = v1 \/ v = v2) (fun e => False) (fun n => (-1)%Z) (fun n => (-1)%Z);
+  pg := @Graph.Build_PreGraph Z Z (fun v => v = v2 \/ v = v1 \/ False) (fun e => False) (fun n => (-1)%Z) (fun n => (-1)%Z);
   symbol := fun _ => None
 |}.
 

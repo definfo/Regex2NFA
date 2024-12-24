@@ -4,14 +4,17 @@ Require Import Regex2NFA.theories.st_nograph_nfa.
 Require Import Regex2NFA.theories.regex.
 Require Import Coq.ZArith.ZArith.
 Require Import Lia.
+From SetsClass Require Import SetsClass.
 From StateMonad.monaderror Require Import monadEbasic monadEwhile monadesafe_lib monadEhoare.
 
 Import MonadwitherrDeno.
 Import MonadNotation.
 Import PreGraphNotations.
+Import SetsNotation.
 Local Open Scope stmonad_scope.
 Local Open Scope Z_scope.
 Local Open Scope pg_scope.
+
 
 
 (** high_level prop *)
@@ -104,6 +107,67 @@ eexists σₕ.
 split; eauto.
 Qed.
 
+Definition pregraph_add_vertex {T: Type} (g: pg_nfa T) (v: Z) : pg_nfa T := {|
+  pg := (@Graph.Build_PreGraph Z Z
+    (fun n => n = v \/ g.(pg).(vvalid) n)
+    (g.(pg).(evalid))
+    (g.(pg).(src))
+    (g.(pg).(dst))
+  );
+  symbol := g.(symbol)
+|}.
+
+Definition pregraph_add_edge {T: Type} (g: pg_nfa T) (e x y : Z) c : pg_nfa T := {|
+  pg := (@Graph.Build_PreGraph Z Z
+    (fun n => n = x \/ n = y \/ g.(pg).(vvalid) n)
+    (fun n => n = e \/ g.(pg).(evalid) n)
+    (fun n => if n =? e then x else g.(pg).(src) n)
+    (fun n => if n =? e then y else g.(pg).(src) n)
+  );
+  symbol := fun n => if n =? e then c else g.(symbol) n
+|}.
+
+(* Lemma G_add_vertex_fact1 {T: Type} : forall (g1: pg_nfa T) v P,
+  ~ g1.(pg).(vvalid) v -> P -@ (G_add_vertex g1 v) -⥅ P ♯ (pregraph_add_vertex g1 v).
+Proof.
+unfold hs_eval, pregraph_add_vertex. intros. simpl.
+eexists σₕ.
+repeat split; eauto.
+- intros. unfold not in H. admit.
+- 
+Qed.
+ *)
+
+Lemma add_vertex_det_pg {T: Type} : forall v g,
+(forall v0, g.(pg).(vvalid) v0 -> v0 < v) ->
+@add_vertex T g v
+  {|
+    pg := @Graph.Build_PreGraph Z Z
+        (fun n => n = v \/ g.(pg T).(vvalid) n)
+        (g.(pg T).(evalid))
+        (g.(pg T).(src))
+        (g.(pg T).(dst))
+    ;
+    symbol := g.(symbol)
+  |}
+.
+Proof.
+intros.
+repeat split; SetsDomain.unfold_SETS_in_goal_tac; simpl; intros.
+- destruct H0.
+  unfold SetsDomain.Sets.singleton in *. subst; eauto.
+  pose proof (H a H0).
+  apply Z.lt_irrefl in H1. eauto.
+- unfold SetsDomain.Sets.empty in H0. simpl in *.
+  contradiction.
+- unfold SetsDomain.Sets.empty in H0. simpl in *.
+  contradiction.
+- unfold SetsDomain.Sets.singleton in *. destruct H0; eauto.
+- unfold SetsDomain.Sets.singleton in *. destruct H0; eauto.
+- eauto.
+- eauto.
+Qed.
+
 (** Refinement proof between high_level and low_level *)
 
 Lemma st_graph_refine {T: Type} :
@@ -144,7 +208,8 @@ Lemma st_graph_refine {T: Type} :
         ).
 Proof.
 induction r.
-- simpl regexToNFA'.
+- (** EmptySet_r *)
+  simpl regexToNFA'.
   intros. eapply Hoare_bind. 1 : { eapply G_add_vertex'_fact. }
   intros. eapply Hoare_bind. 1 : { eapply G_add_vertex'_fact. }
   intros. eapply Hoare_return. 1 : {
@@ -159,22 +224,77 @@ induction r.
       eapply highstepbind_derive in H7. 2 : { eapply get_new_vertex_fact. }
       eapply highstepbind_derive in H7. 2 : { eapply get_new_vertex_fact. }
       unfold graph_constr, graph_constr_rec in H7.
-      repeat rewrite bind_bind_equiv in H7.
+      rewrite bind_bind_equiv in H7.
       eapply highstepbind_derive in H7. 2 : {
         eapply G_add_vertex_fact.
-        assert (forall v, add_vertex empty_nfa v
-                            (@Build_pg_nfa T
-                              (@Graph.Build_PreGraph Z Z
-                                  (fun n => n = v \/ empty_nfa.(pg T).(vvalid) n)
-                                  (empty_nfa.(pg T).(evalid))
-                                  (empty_nfa.(pg T).(src))
-                                  (empty_nfa.(pg T).(dst))
-                              )
-                              empty_nfa.(symbol)
-                            )
-               ).
-        {
-          intros.
-          simpl; repeat split; eauto.
+        eapply add_vertex_det_pg.
+        intros. simpl in H11. contradiction.
+      }
+      rewrite bind_bind_equiv in H7.
+      eapply highstepbind_derive in H7. 2 : {
+        eapply G_add_vertex_fact.
+        eapply add_vertex_det_pg.
+        intros. simpl in H11. destruct H11; nia.
+      }
+      eapply highstepbind_derive in H7. 2 : {
+        simpl in *. eapply highret_eval2.
+      }
+      unfold ret_nfa in H7. subst.
+      rewrite H0, H1, H4, H5.
+      
+      eapply H7.
+    - simpl. intros. destruct H11; nia.
+    - simpl. intros. destruct H11; nia.
+    - SetsDomain.unfold_SETS_in_goal_tac.
+      simpl; intros. destruct H11.
+      repeat destruct H12; subst; simpl in *.
+      + pose proof H9 σ.(max_v') H11. nia.
+      + pose proof H9 x.(max_v') H11. nia.
+    - unfold SetsDomain.Sets.empty in *; simpl in *; contradiction.
+    - unfold SetsDomain.Sets.empty in *; simpl in *; contradiction.
+    - SetsDomain.unfold_SETS_in_goal_tac. simpl; intros.
+      (** x0 --> x --> σ **)
+      destruct H11 as [?|[?|[?|?]]];
+      destruct H2, H6; destruct add_vertex_pg, add_vertex_pg0;
+      unfold Sets_disjoint_union in *;
+      destruct add_vertex_vertex, add_vertex_vertex0;
+      rewrite <- H13 in H6; apply H6;
+      unfold SetsDomain.Sets.singleton. subst.
+      + left. left. eauto.
+      + right. lia.
+      + left. right. lia.
+      + contradiction.
+    - SetsDomain.unfold_SETS_in_goal_tac. simpl; intros.
+      destruct H2, H6; destruct add_vertex_pg, add_vertex_pg0;
+      unfold Sets_disjoint_union in *;
+      destruct add_vertex_vertex, add_vertex_vertex0;
+      rewrite <- H13 in H6; apply H6 in H11.
+      destruct H11 as [[?|?]|?]; unfold SetsDomain.Sets.singleton;
+      subst.
+      + left. eauto.
+      + right. right. left. eauto. 
+      + right. left. eauto.
+    - SetsDomain.unfold_SETS_in_goal_tac. simpl; intros.
+      destruct H11; eauto.
+    - destruct H11.
+    - SetsDomain.unfold_SETS_in_goal_tac. simpl; intros.
+      destruct H11.
+      + destruct H2, H6; destruct add_vertex_pg, add_vertex_pg0;
+        unfold Sets_disjoint_union in *.
+        apply add_vertex_edge, add_vertex_edge0. subst; eauto.
+      + contradiction.
+    - SetsDomain.unfold_SETS_in_goal_tac. simpl; intros.
+      destruct H2, H6; destruct add_vertex_pg, add_vertex_pg0;
+      unfold Sets_disjoint_union in *.
+      apply add_vertex_edge, add_vertex_edge0 in H11. subst; eauto.
+    - SetsDomain.unfold_SETS_in_goal_tac. simpl; intros.
+      destruct H2, H6; destruct add_vertex_pg, add_vertex_pg0;
+      unfold Sets_disjoint_union in *.
+      subst.
+      pose proof (add_vertex_src0 e H11). rewrite <- H.
+      apply add_vertex_src. apply add_vertex_edge0.
+      eauto.
+    - simpl.
+
 
 Admitted.
