@@ -132,17 +132,37 @@ Record union_rel {T} (g1 g2 g: pg_nfa T): Prop :=
   union_symbol2: forall e, e ∈ g2.(pg).(evalid) -> g.(symbol) e = g2.(symbol) e;
 }.
 
+Definition pregraph_add_vertex {T: Type} (g: pg_nfa T) (v: Z) : pg_nfa T := {|
+  pg := (@Graph.Build_PreGraph Z Z
+    (fun n => n = v \/ g.(pg).(vvalid) n)
+    (g.(pg).(evalid))
+    (g.(pg).(src))
+    (g.(pg).(dst))
+  );
+  symbol := g.(symbol)
+|}.
+
+Definition pregraph_add_edge {T: Type} (g: pg_nfa T) (e x y : Z) c : pg_nfa T := {|
+  pg := (@Graph.Build_PreGraph Z Z
+    (fun n => n = x \/ n = y \/ g.(pg).(vvalid) n)
+    (fun n => n = e \/ g.(pg).(evalid) n)
+    (fun n => if n =? e then x else g.(pg).(src) n)
+    (fun n => if n =? e then y else g.(pg).(dst) n)
+  );
+  symbol := fun n => if n =? e then c else g.(symbol) n
+|}.
+
 Definition empty_nfa {T: Type} : pg_nfa T := {|
   (* ? Pose src/dst as `fun n => -1` to indicate emptyness *)
   pg := @Graph.Build_PreGraph Z Z (fun v => False) (fun e => False) (fun n => (-1)%Z) (fun n => (-1)%Z);
   symbol := fun _ => None
 |}.
 
-Definition emptyset_nfa {T: Type} (v1 v2 : Z) : pg_nfa T := {|
-  (* ? Pose src/dst as `fun n => -1` to indicate emptyness *)
-  pg := @Graph.Build_PreGraph Z Z (fun v => v = v2 \/ v = v1 \/ False) (fun e => False) (fun n => (-1)%Z) (fun n => (-1)%Z);
-  symbol := fun _ => None
-|}.
+Definition emptyset_nfa {T: Type} (v1 v2 : Z) : pg_nfa T :=
+  pregraph_add_vertex (pregraph_add_vertex empty_nfa v1) v2.
+
+Definition emptystr_nfa {T: Type} (e1: Z) (v1 v2 : Z) : pg_nfa T :=
+  pregraph_add_edge (emptyset_nfa v1 v2) e1 v1 v2 None.
 
 Definition e_step {T} (G: pg_nfa T) : Z -> Z -> Prop :=
   fun x y => exists e, Graph.step_aux G.(pg) e x y /\ G.(symbol) e = None.
