@@ -164,6 +164,9 @@ Definition emptyset_nfa {T: Type} (v1 v2 : Z) : pg_nfa T :=
 Definition emptystr_nfa {T: Type} (e1: Z) (v1 v2 : Z) : pg_nfa T :=
   pregraph_add_edge (emptyset_nfa v1 v2) e1 v1 v2 None.
 
+Definition char_nfa {T: Type} (e1: Z) (v1 v2 : Z) t : pg_nfa T :=
+  pregraph_add_edge (emptyset_nfa v1 v2) e1 v1 v2 t.
+
 Definition e_step {T} (G: pg_nfa T) : Z -> Z -> Prop :=
   fun x y => exists e, Graph.step_aux G.(pg) e x y /\ G.(symbol) e = None.
 
